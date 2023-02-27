@@ -7,7 +7,6 @@ import akka.actor.typed.javadsl.AbstractBehavior
 import akka.actor.typed.javadsl.ActorContext
 import akka.actor.typed.javadsl.Behaviors
 import akka.actor.typed.javadsl.Receive
-import akka.japi.function.Predicate
 import it.brokerakka.brokerakka.akka_complex_example.DeviceManager.*
 
 
@@ -44,7 +43,10 @@ class DeviceGroup private constructor(
         }
     }
 
-
+    /**
+     * Function called on RequestTrackDevice's message arrived
+     * RequestTrackDevice is a message defined in DeviceManager class
+     */
     private fun onTrackDevice(trackMsg: RequestTrackDevice): DeviceGroup {
         if (groupId == trackMsg.groupId) {
             var deviceActor: ActorRef<Device.Command>? = deviceIdToActor[trackMsg.deviceId]
@@ -61,42 +63,45 @@ class DeviceGroup private constructor(
                 .log
                 .warn(
                     "Ignoring TrackDevice request for {}. This actor is responsible for {}.",
-                    groupId,
+                    trackMsg.groupId,
                     groupId
                 )
         }
         return this
     }
 
+    /**
+     * Function called on RequestDeviceList's message arrived
+     */
     private fun onDeviceList(r: RequestDeviceList): DeviceGroup {
         r.replyTo.tell(ReplyDeviceList(r.requestId, deviceIdToActor.keys))
         return this
     }
 
+    /**
+     * Function called on DeviceTerminated's message arrived
+     */
     private fun onTerminated(t: DeviceTerminated): DeviceGroup {
         getContext().log.info("Device actor for {} has been terminated", t.deviceId)
         deviceIdToActor.remove(t.deviceId)
         return this
     }
 
-    override fun createReceive(): Receive<Command?>? {
-        return newReceiveBuilder()
-            .onMessage(RequestTrackDevice::class.java, ::onTrackDevice)
-            .onMessage(
-                RequestDeviceList::class.java,
-                Predicate { (_, groupId1): RequestDeviceList -> groupId1 == groupId },
-                this::onDeviceList
-            )
-            .onMessage(DeviceTerminated::class.java, ::onTerminated)
-            .onSignal(
-                PostStop::class.java
-            ) { _: PostStop? -> onPostStop() }
-            .build()
-    }
-
+    /**
+     * Function called on onPostStop's signal arrived
+     */
     private fun onPostStop(): DeviceGroup {
         getContext().log.info("DeviceGroup {} stopped", groupId)
         return this
     }
 
+    override fun createReceive(): Receive<Command?>? {
+        return newReceiveBuilder()
+            .onMessage(RequestTrackDevice::class.java, ::onTrackDevice)
+            .onMessage(RequestDeviceList::class.java, ::onDeviceList)
+            .onMessage(DeviceTerminated::class.java, ::onTerminated)
+            .onSignal(PostStop::class.java
+            ) { _: PostStop? -> onPostStop() }
+            .build()
+    }
 }

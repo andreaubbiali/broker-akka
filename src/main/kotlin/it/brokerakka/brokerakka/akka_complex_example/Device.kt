@@ -7,7 +7,6 @@ import akka.actor.typed.javadsl.AbstractBehavior
 import akka.actor.typed.javadsl.ActorContext
 import akka.actor.typed.javadsl.Behaviors
 import akka.actor.typed.javadsl.Receive
-import akka.japi.function.Function
 import it.brokerakka.brokerakka.akka_complex_example.Device.RecordTemperature
 import java.util.*
 
@@ -53,28 +52,9 @@ class Device private constructor(
         }
     }
 
-    override fun createReceive(): Receive<Command> {
-        return newReceiveBuilder()
-            .onMessage(
-                ReadTemperature::class.java,
-                Function { r: ReadTemperature ->
-                    onReadTemperature(
-                        r
-                    )
-                })
-            .onMessage(
-                RecordTemperature::class.java,
-                Function { r: RecordTemperature ->
-                    onRecordTemperature(
-                        r
-                    )
-                })
-            .onSignal(
-                PostStop::class.java,
-                Function { _ -> onPostStop() })
-            .build()
-    }
-
+    /**
+     * Function called on RecordTemperature's message arrived
+     */
     private fun onRecordTemperature(r: RecordTemperature): Behavior<Command> {
         getContext().log.info("Recorded temperature reading {} with {}", r.value, r.requestId)
         lastTemperatureReading = Optional.of(r.value)
@@ -82,13 +62,29 @@ class Device private constructor(
         return this
     }
 
+    /**
+     * Function called on ReadTemperature's message arrived
+     */
     private fun onReadTemperature(r: ReadTemperature): Behavior<Command> {
         r.replyTo.tell(RespondTemperature(r.requestId, lastTemperatureReading))
         return this
     }
 
+    /**
+     * Function called on onPostStop's signal arrived
+     */
     private fun onPostStop(): Device {
         context.log.info("Device actor {}-{} stopped", groupId, deviceId)
         return this
+    }
+
+    override fun createReceive(): Receive<Command> {
+        return newReceiveBuilder()
+            .onMessage(ReadTemperature::class.java, ::onReadTemperature)
+            .onMessage(RecordTemperature::class.java, :: onRecordTemperature)
+            .onSignal(
+                PostStop::class.java
+            ){ _ -> onPostStop() }
+            .build()
     }
 }

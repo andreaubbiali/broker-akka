@@ -7,9 +7,7 @@ import akka.actor.typed.javadsl.AbstractBehavior
 import akka.actor.typed.javadsl.ActorContext
 import akka.actor.typed.javadsl.Behaviors
 import akka.actor.typed.javadsl.Receive
-import akka.japi.function.Function
 import java.util.*
-import kotlin.collections.HashMap
 
 
 /**
@@ -36,6 +34,7 @@ class DeviceManager private constructor(private val context: ActorContext<Device
 
     /**
      * Accepted incoming messages (implements [Command] interface)
+     * Do not make it private, some of them are used in other class
      */
     data class RequestTrackDevice(val groupId: String, val deviceId: String, val replyTo: ActorRef<DeviceRegistered?>) :
         Command, DeviceGroup.Command
@@ -118,15 +117,9 @@ class DeviceManager private constructor(private val context: ActorContext<Device
      */
     override fun createReceive(): Receive<Command?>? {
         return newReceiveBuilder()
-            .onMessage(
-                RequestTrackDevice::class.java
-            ) { trackMsg -> onTrackDevice(trackMsg)}
-            .onMessage(
-                RequestDeviceList::class.java
-            ) { request -> onRequestDeviceList(request) }
-            .onMessage(
-                DeviceGroupTerminated::class.java
-            ) { t -> onTerminated(t) }
+            .onMessage(RequestTrackDevice::class.java, ::onTrackDevice)
+            .onMessage(RequestDeviceList::class.java, ::onRequestDeviceList)
+            .onMessage(DeviceGroupTerminated::class.java, ::onTerminated)
             .onSignal(
                 PostStop::class.java
             ){ _ -> onPostStop() }
