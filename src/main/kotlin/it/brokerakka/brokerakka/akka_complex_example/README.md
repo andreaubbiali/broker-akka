@@ -35,3 +35,8 @@ Usual flow is:
 
 We will work for point 3-6
 
+# Understand the example
+
+To understand the example think about to put the IoTSupervisor actor open on the net.
+A physical device connects through a specific protocol (maybe MQTT) and send a message. This message is then transformed
+in an Akka message sent to the DeviceManager. All others messages are sent between Akka's actors 
