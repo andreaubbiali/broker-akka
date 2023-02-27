@@ -23,6 +23,9 @@ import kotlin.collections.HashMap
  */
 class DeviceManager private constructor(private val context: ActorContext<DeviceManager.Command>): AbstractBehavior<DeviceManager.Command>(context) {
 
+    /**
+     * Map that contains <groupID, DeviceGroupActor>
+     */
     private val groupIdToActor: MutableMap<String, ActorRef<DeviceGroup.Command>> = HashMap()
 
     init {
@@ -31,40 +34,58 @@ class DeviceManager private constructor(private val context: ActorContext<Device
 
     interface Command
 
+    /**
+     * Accepted incoming messages (implements [Command] interface)
+     */
     data class RequestTrackDevice(val groupId: String, val deviceId: String, val replyTo: ActorRef<DeviceRegistered?>) :
         Command, DeviceGroup.Command
-
-    data class DeviceRegistered(val device: ActorRef<Device.Command>)
-
     internal data class RequestDeviceList(val requestId: Long, val groupId: String, val replyTo: ActorRef<ReplyDeviceList>) :
         Command, DeviceGroup.Command
-
-    class ReplyDeviceList(val requestId: Long, val ids: Set<String>)
-
     internal data class DeviceGroupTerminated(val groupId: String) : Command
+
+    // Responses
+    class ReplyDeviceList(val requestId: Long, val ids: Set<String>)
+    data class DeviceRegistered(val device: ActorRef<Device.Command>)
 
     fun create(): Behavior<Command> {
         return Behaviors.setup { context: ActorContext<Command> -> DeviceManager(context) }
     }
 
+    /**
+     * Function called on RequestTrackDevice's message arrived
+     */
     private fun onTrackDevice(trackMsg: RequestTrackDevice): DeviceManager {
         val groupId = trackMsg.groupId
-        val ref = groupIdToActor[groupId]
-        if (ref != null) {
-            ref.tell(trackMsg)
-        } else {
-            getContext().log.info("Creating device group actor for {}", groupId)
-            val groupActor = getContext().spawn<DeviceGroup.Command>(
-                DeviceGroup.create(groupId),
-                "group-$groupId"
-            )
-            getContext().watchWith(groupActor, DeviceGroupTerminated(groupId))
-            groupActor.tell(trackMsg)
-            groupIdToActor[groupId] = groupActor
-        }
+        val groupActor = getOrCreateFromMap(groupId)
+
+        // send the message to the groupActor
+        groupActor.tell(trackMsg)
         return this
     }
 
+    private fun getOrCreateFromMap(groupId: String): ActorRef<DeviceGroup.Command> {
+        val tmp = groupIdToActor[groupId]
+        if (tmp != null){
+            return tmp
+        }
+
+        getContext().log.info("Creating device group actor for {}", groupId)
+        val groupActor = getContext().spawn<DeviceGroup.Command>(
+            DeviceGroup.create(groupId),
+            "group-$groupId"
+        )
+        getContext().watchWith(groupActor, DeviceGroupTerminated(groupId))
+        groupIdToActor[groupId] = groupActor
+
+
+        return groupActor
+    }
+
+    /**
+     * Function called on RequestDeviceList's message arrived
+     * If the devicegroup is present pass to it the message
+     * Otherwise reply with an empty list
+     */
     private fun onRequestDeviceList(request: RequestDeviceList): DeviceManager {
         val ref = groupIdToActor[request.groupId]
         if (ref != null) {
@@ -75,35 +96,40 @@ class DeviceManager private constructor(private val context: ActorContext<Device
         return this
     }
 
+    /**
+     * Function called on DeviceGroupTerminated's message arrived
+     */
     private fun onTerminated(t: DeviceGroupTerminated): DeviceManager {
         getContext().log.info("Device group actor for {} has been terminated", t.groupId)
         groupIdToActor.remove(t.groupId)
         return this
     }
 
+    /**
+     * Function called on onPostStop's signal arrived
+     */
+    private fun onPostStop(): DeviceManager {
+        getContext().log.info("DeviceManager stopped")
+        return this
+    }
+
+    /**
+     * Create the receiver
+     */
     override fun createReceive(): Receive<Command?>? {
         return newReceiveBuilder()
             .onMessage(
                 RequestTrackDevice::class.java
-            ) { trackMsg: RequestTrackDevice ->
-                onTrackDevice(
-                    trackMsg
-                )
-            }
+            ) { trackMsg -> onTrackDevice(trackMsg)}
             .onMessage(
                 RequestDeviceList::class.java
-            ) { request: RequestDeviceList -> onRequestDeviceList(request) }
+            ) { request -> onRequestDeviceList(request) }
             .onMessage(
-                DeviceGroupTerminated::class.java,
-                Function { t -> onTerminated(t) })
+                DeviceGroupTerminated::class.java
+            ) { t -> onTerminated(t) }
             .onSignal(
-                PostStop::class.java,
-                Function { _ -> onPostStop() })
+                PostStop::class.java
+            ){ _ -> onPostStop() }
             .build()
-    }
-
-    private fun onPostStop(): DeviceManager {
-        getContext().log.info("DeviceManager stopped")
-        return this
     }
 }
