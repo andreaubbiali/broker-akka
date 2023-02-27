@@ -26,12 +26,12 @@ An actor:
 
 Usual flow is:
 
-- A sensor device in the home connects through some protocol.
-- The component managing network connections accepts the connection.
-- The sensor provides its group and device ID to register with the device manager component of our system.
-- The device manager component handles registration by looking up or creating the actor responsible for keeping sensor state.
-- The actor responds with an acknowledgement, exposing its ActorRef.
-- The networking component now uses the ActorRef for communication between the sensor and device actor without going through the device manager.
+1. A sensor device in the home connects through some protocol.
+2. The component managing network connections accepts the connection.
+3. The sensor provides its group and device ID to register with the device manager component of our system.
+4. The device manager component handles registration by looking up or creating the actor responsible for keeping sensor state.
+5. The actor responds with an acknowledgement, exposing its ActorRef.
+6. The networking component now uses the ActorRef for communication between the sensor and device actor without going through the device manager.
 
 We will work for point 3-6
 
