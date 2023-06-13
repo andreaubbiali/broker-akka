@@ -2,7 +2,7 @@ package it.brokerakka.brokerakka
 
 import akka.actor.typed.ActorSystem
 import it.brokerakka.brokerakka.akka_hello_world.GreeterMain
-import org.springframework.boot.SpringApplication
+import it.brokerakka.brokerakka.mqtt.PublisherMQTT
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 import java.io.IOException
@@ -28,8 +28,8 @@ fun main(args: Array<String>) {
 	}
 
 
-//    val pub = PublisherMQTT()
-//    println("Publisher started!")
+    val pub = PublisherMQTT()
+    println("Publisher started!")
 //    val cons = ConsumerAQMP()
 //    println("Consumer started!")
 }

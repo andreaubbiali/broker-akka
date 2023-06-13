@@ -4,13 +4,13 @@ import org.eclipse.paho.client.mqttv3.*
 
 class PublisherMQTT {
 
-    val mqttClient: MqttClient = MqttClient("tcp://broker.emqx.io:1883", "prova")
+    val mqttClient: MqttClient = MqttClient("tcp://test.mosquitto.org:1883", "prova")
 
     init {
 
         mqttClient.setCallback(object : MqttCallback {
             override fun messageArrived(topic: String?, message: MqttMessage?) {
-                // no implementation
+                println("PRIMA CALLBACK")
             }
 
             override fun connectionLost(cause: Throwable?) {
@@ -23,15 +23,20 @@ class PublisherMQTT {
         })
 
         val options = MqttConnectOptions()
-        options.password = "dfgv".toCharArray()
-        options.userName = ""
+//        options.password = "dfgv".toCharArray()
+//        options.userName = ""
         options.isAutomaticReconnect = true
 
         try {
             mqttClient.connect(options)
+            mqttClient.subscribe("/prova", 1, CallBack2())
         } catch (e: MqttException) {
             e.printStackTrace()
         }
+
+        val msg = MqttMessage("ciao".toByteArray())
+
+        mqttClient.publish("/prova", msg)
 
     }
 
@@ -45,6 +50,13 @@ class PublisherMQTT {
         } catch (e: MqttException) {
             e.printStackTrace()
         }
+    }
+
+    class CallBack2 : IMqttMessageListener {
+        override fun messageArrived(topic: String?, message: MqttMessage?) {
+            println("MESSAGGIO ARRIVATO 2")
+        }
+
     }
 
 }
